@@ -1,0 +1,84 @@
+---
+title: "Bank Marketing: Model Fitting and Selection"
+format: html
+editor: visual
+author: "Bhanuprakash Devapatla"
+---
+
+# Introduction 
+
+The data comes from [Banking Dataset - Marketing Targets](https://www.kaggle.com/datasets/prakharrathi25/banking-dataset-marketing-targets). This is picked up from publicly available research data [UCI Machine Learning](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing) using random sampling plus a few additional columns are introduced in Kaggle data.
+
+In Project 2, I explored this data with an interactive Shiny app. The goal of this (final) project is to predict **`y`**
+y is a categorical outcome of the campaign, therefore we will be working on a binary classification problem. 
+
+**Client Traits (column names in the data set):**
+
+## bank client data:
+
+1.  age (numeric)
+2.  job : type of job (categorical: "admin.","unknown","unemployed","management","housemaid","entrepreneur","student","blue-collar","self-employed","retired","technician","services")
+3.  marital : marital status (categorical: "married","divorced","single"; note: "divorced" means divorced or widowed)
+4.  education (categorical: "unknown","secondary","primary","tertiary")
+5.  default: has credit in default? (binary: "yes","no")
+6.  balance: average yearly balance, in euros (numeric)
+7.  housing: has housing loan? (binary: "yes","no")
+8.  loan: has personal loan? (binary: "yes","no") 
+
+## related with the last contact of the current campaign:
+
+9.  contact: contact communication type (categorical: "unknown","telephone","cellular")
+10. day: last contact day of the month (numeric)
+11. month: last contact month of year (categorical: "jan", "feb", "mar", …, "nov", "dec")
+12. duration: last contact duration, in seconds (numeric) 
+
+## other attributes:
+
+13. campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)
+14. pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric, -1. means client was not previously contacted)
+15. previous: number of contacts performed before this campaign and for this client (numeric)
+16. poutcome: outcome of the previous marketing campaign (categorical: "unknown","other","failure","success")
+
+**Output variable (desired target):**
+
+1.  y - has the client subscribed a term deposit? (binary: "yes","no")
+
+# Setup
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+
+# Read the data 
+
+As shown in Project 2, `test.csv` is just a 10% random sample of `train.csv`, so `train.csv` along holds all clients.
+
+```{r}
+bank_raw <- read_delim("data/train.csv", delim = ";")
+bank_raw
+```
+
+# Pre-processing
+First, let's check for missing values and for the string `"unknown"` -- which is showong up in contact and poutcome columns 
+
+```{r}
+colSums(is.na(bank_raw))
+colSums(bank_raw == "unknown")
+```
+
+No columns contain `NA` values
+But 4 different columns with vast number of observations contain unknnown so let's make `"unknown"` its own level. 
+
+Let's now make categorical columns factors.
+
+```{r}
+bank_all <- bank_raw |>
+  mutate(
+    across(where(is.character), as.factor)
+  )
+str(bank_all)
+levels(bank_all$y)
+```
+
