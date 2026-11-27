@@ -48,6 +48,7 @@ y is a categorical outcome of the campaign, therefore we will be working on a bi
 ```{r}
 library(tidyverse)
 library(tidymodels)
+library(rpart.plot)
 ```
 
 
@@ -315,3 +316,110 @@ One other option considered is accuracy - however the share of subscribers is ab
 bank_metrics <- metric_set(mn_log_loss)
 
 ```
+
+
+# Classification tree 
+
+
+
+A classification tree falls under the category of supervised learning models and isi used when the response variable is categorical.
+
+The idea behind a tree-based model is to split the predictor space into different regions and make a prediction for reach region. Unlike logistic regression, the predictions in adjacent regions do not necessarily have to be close to each other.
+
+One of the interesting things we noticed during our EDA was that the subscription rate went from approximately 10% to 42% around the age of 60. A tree-based model could potentially capture this pattern by splitting the data based on age.
+
+## How does the model make predictions?
+
+In a regression tree, as we saw in HW10, the prediction is the mean of a response variable in a given region. In a classification tree, however, the prediction is the most prevalent class in that region.
+
+Since we are using log-loss as our metric, we are interested in the probability of a client subscribing to a term deposit. This probability can be obtained by looking at the proportion of clients who subscribed within a given terminal node.
+
+## How does the tree fit?
+ 
+The fitting is done by recursive binary splitting, which is greedy; it picks the best split that minimizes loss at each step without looking ahead. At each step it tries every predictor and every possible cut point, and chooses the split that makes the two new regions as close to all `yes` or all `no` as possible, then repeats this within each new region. 
+
+## What is Pruning?
+
+If we keep splitting, the tree will grow very large and overfit the training data. Trees are usually grown large first and then pruned back using cost-complexity pruning which is controlled by the `cost_complexity` tuning parameter.
+
+## What are the other tuning parameters?
+
+The other tuning parameter I use this `tree_depth`, which sets the maximum depth of the tree. The final tree is limited by the stricter of `cost_complexity` or `tree_depth`
+Another parameter, `min_n`, is the minimum number of observations a node needs before it can split. I will leave it as  the default of 20. 
+
+I tune `cost_complexity` and `tree_depth` together using a grid of 5 values each, which gives 25 combinations. Each combination is fit using the 5-fold CV described above, and the one with the lowest average log-loss is selected 
+
+
+## Recipe 
+
+Trees can handle factors directly and dont need the numeric predictors to be standardized.. The recipe only needs the formula
+
+```{r}
+bank_recipe <- recipe(y ~ ., data = bank_train)
+bank_recipe
+
+```
+
+## Fitting the classificaiton tree
+
+```{r}
+
+tree_spec <- decision_tree(cost_complexity = tune(), tree_depth = tune()) |>
+  set_engine("rpart") |>
+  set_mode("classification")
+
+
+tree_workflow <- workflow() |>
+  add_recipe(bank_recipe) |>
+  add_model(tree_spec)
+
+
+tree_grid <- grid_regular(cost_complexity(), tree_depth(), levels = 5)
+
+tree_results <- tree_workflow |>
+  tune_grid(resamples = bank_folds, grid = tree_grid, metrics = bank_metrics)
+
+# arrange the 25 trees by the mean value of mn_log_loss in ascending order 
+collect_metrics(tree_results) |>
+  arrange(mean)
+
+```
+
+
+## Best classification tree
+
+```{r}
+
+# Let's select the best tuning parameters -- which is pre0_mod17_post0 from above
+
+tree_best_params <- select_best(tree_results, metric = "mn_log_loss")
+tree_best_params
+
+```
+
+Now let's repalce `tune()` with best values 
+
+```{r}
+tree_final_workflow <- tree_workflow |>
+  finalize_workflow(tree_best_params)
+
+
+```
+
+Now let's fit the full training data on the final winning tree model 
+
+```{r}
+tree_final_fit <- tree_final_workflow |>
+  fit(bank_train)
+
+```
+
+Now let's plot to visualiize final tree
+
+```{r}
+tree_final_fit |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE)
+
+```
+The tree splits on poutcome first. if the previous campaign was a scuess, about 65% of those clients subscribed, but the remaining 97% of clients all go into on leaf with only about 10% chance of subscribing. The success group gets split further by housing, campaign and balance, and clients with no housing loan and fewer calls have the highest rate at 71%. Interestingly, age is not usued anywhere in the tree even though it looked useful during the EDA.
