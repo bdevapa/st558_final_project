@@ -251,3 +251,67 @@ Final Predictors before starting modeling
 - age
 - balance
 - campaign
+
+# Modeling
+
+## Train/ test split 
+
+Let's select the 5 predictor columns + response column and then do a 70-30 split on the data. Let's use response as strata so both train and test have same proportion of yes/no observations 
+
+```{r}
+set.seed(558)
+
+bank <- bank_all |>
+  select(y, housing, poutcome, age, balance, campaign)
+
+bank_split <- initial_split(bank, prop = 0.7, strata = y)
+bank_train <- training(bank_split)
+bank_test <- testing(bank_split)
+
+```
+
+Let's check yes/no balance in both training and testing sets
+
+```{r}
+
+bank_train |> 
+  count(y) |> 
+  mutate(prop = n / sum(n))
+
+bank_test |> 
+  count(y) |>
+  mutate(prop = n / sum(n))
+
+```
+
+## Cross validation folds
+
+Using 5 fold cross validation to select best model from each family of models:
+- classification tree (not regression tree because the response is a categorical/class variable)
+- random forest 
+
+```{r}
+bank_folds <- vfold_cv(bank_train, v = 5, strata = y)
+bank_folds
+
+```
+There are 31,647 observations in the training data. 
+5 fold CV splits them into 5 folds of about 6,330 observations each (or 6329 in some folds). In each of the 5 iterations, the model is fit on 4 folds (about 25,300 observations) and evaluated on the remaining fold which is the validation fold. Each fold serves as the validation fold exactly once. The log-loss is averaged for these 5 iterations. 
+
+CV helps to select the hyperparameters that are not influenced by specific subset of training data. Instead all of the training data is used for both fitting and evaluatiing the model in different iterations and for each combination of the tuning-grid/hyperparameter selection 
+
+The test set is not used in CV process. 
+
+
+## Metric for selecting the best model from each family 
+
+I will go with log-loss function. 
+Basically in a classification problem we have to maximize the likelihood of correctly estimating the outcome which translates to minimizing negative likelihood function aka log-loss function. 
+One other option considered is accuracy - however the share of subscribers is about 12%. Therefore, a model that learns to classify every customer as "no" gets it right 88% of the times which is not meaningful. An 88% accuracy would only be meaningful if the outcome classes were balanced. 
+
+
+
+```{r}
+bank_metrics <- metric_set(mn_log_loss)
+
+```

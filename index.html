@@ -24,6 +24,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -76,6 +111,7 @@ ul.task-list li input[type="checkbox"] {
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
 <p>The data comes from <a href="https://www.kaggle.com/datasets/prakharrathi25/banking-dataset-marketing-targets">Banking Dataset - Marketing Targets</a>. This is picked up from publicly available research data <a href="https://archive.ics.uci.edu/ml/datasets/Bank+Marketing">UCI Machine Learning</a> using random sampling plus a few additional columns are introduced in Kaggle data.</p>
+<p>In Project 2, I explored this data with an interactive Shiny app. The goal of this (final) project is to predict <strong><code>y</code></strong> y is a categorical outcome of the campaign, therefore we will be working on a binary classification problem.</p>
 <p><strong>Client Traits (column names in the data set):</strong></p>
 <section id="bank-client-data" class="level2">
 <h2 class="anchored" data-anchor-id="bank-client-data">bank client data:</h2>
@@ -87,11 +123,21 @@ ul.task-list li input[type="checkbox"] {
 <li>default: has credit in default? (binary: “yes”,“no”)</li>
 <li>balance: average yearly balance, in euros (numeric)</li>
 <li>housing: has housing loan? (binary: “yes”,“no”)</li>
-<li>loan: has personal loan? (binary: “yes”,“no”) ## related with the last contact of the current campaign:</li>
+<li>loan: has personal loan? (binary: “yes”,“no”)</li>
+</ol>
+</section>
+<section id="related-with-the-last-contact-of-the-current-campaign" class="level2">
+<h2 class="anchored" data-anchor-id="related-with-the-last-contact-of-the-current-campaign">related with the last contact of the current campaign:</h2>
+<ol start="9" type="1">
 <li>contact: contact communication type (categorical: “unknown”,“telephone”,“cellular”)</li>
 <li>day: last contact day of the month (numeric)</li>
 <li>month: last contact month of year (categorical: “jan”, “feb”, “mar”, …, “nov”, “dec”)</li>
-<li>duration: last contact duration, in seconds (numeric) ## other attributes:</li>
+<li>duration: last contact duration, in seconds (numeric)</li>
+</ol>
+</section>
+<section id="other-attributes" class="level2">
+<h2 class="anchored" data-anchor-id="other-attributes">other attributes:</h2>
+<ol start="13" type="1">
 <li>campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)</li>
 <li>pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric, -1. means client was not previously contacted)</li>
 <li>previous: number of contacts performed before this campaign and for this client (numeric)</li>
@@ -101,6 +147,415 @@ ul.task-list li input[type="checkbox"] {
 <ol type="1">
 <li>y - has the client subscribed a term deposit? (binary: “yes”,“no”)</li>
 </ol>
+</section>
+</section>
+<section id="setup" class="level1">
+<h1>Setup</h1>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.1     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidymodels)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>── Attaching packages ────────────────────────────────────── tidymodels 1.5.0 ──
+✔ broom        1.0.13     ✔ rsample      1.3.2 
+✔ dials        1.4.4      ✔ tailor       0.1.0 
+✔ infer        1.1.0      ✔ tune         2.1.0 
+✔ modeldata    1.5.1      ✔ workflows    1.3.0 
+✔ parsnip      1.6.0      ✔ workflowsets 1.1.1 
+✔ recipes      1.3.3      ✔ yardstick    1.4.0 
+── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──
+✖ scales::discard() masks purrr::discard()
+✖ dplyr::filter()   masks stats::filter()
+✖ recipes::fixed()  masks stringr::fixed()
+✖ dplyr::lag()      masks stats::lag()
+✖ yardstick::spec() masks readr::spec()
+✖ recipes::step()   masks stats::step()</code></pre>
+</div>
+</div>
+</section>
+<section id="read-the-data" class="level1">
+<h1>Read the data</h1>
+<p>As shown in Project 2, <code>test.csv</code> is just a 10% random sample of <code>train.csv</code>, so <code>train.csv</code> along holds all clients.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>bank_raw <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">"data/train.csv"</span>, <span class="at">delim =</span> <span class="st">";"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Rows: 45211 Columns: 17
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ";"
+chr (10): job, marital, education, default, housing, loan, contact, month, p...
+dbl  (7): age, balance, day, duration, campaign, pdays, previous
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>bank_raw</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 45,211 × 17
+     age job       marital education default balance housing loan  contact   day
+   &lt;dbl&gt; &lt;chr&gt;     &lt;chr&gt;   &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;   &lt;dbl&gt;
+ 1    58 manageme… married tertiary  no         2143 yes     no    unknown     5
+ 2    44 technici… single  secondary no           29 yes     no    unknown     5
+ 3    33 entrepre… married secondary no            2 yes     yes   unknown     5
+ 4    47 blue-col… married unknown   no         1506 yes     no    unknown     5
+ 5    33 unknown   single  unknown   no            1 no      no    unknown     5
+ 6    35 manageme… married tertiary  no          231 yes     no    unknown     5
+ 7    28 manageme… single  tertiary  no          447 yes     yes   unknown     5
+ 8    42 entrepre… divorc… tertiary  yes           2 yes     no    unknown     5
+ 9    58 retired   married primary   no          121 yes     no    unknown     5
+10    43 technici… single  secondary no          593 yes     no    unknown     5
+# ℹ 45,201 more rows
+# ℹ 7 more variables: month &lt;chr&gt;, duration &lt;dbl&gt;, campaign &lt;dbl&gt;, pdays &lt;dbl&gt;,
+#   previous &lt;dbl&gt;, poutcome &lt;chr&gt;, y &lt;chr&gt;</code></pre>
+</div>
+</div>
+</section>
+<section id="pre-processing" class="level1">
+<h1>Pre-processing</h1>
+<p>First, let’s check for missing values and for the string <code>"unknown"</code> – which is showong up in contact and poutcome columns</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(bank_raw))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      age       job   marital education   default   balance   housing      loan 
+        0         0         0         0         0         0         0         0 
+  contact       day     month  duration  campaign     pdays  previous  poutcome 
+        0         0         0         0         0         0         0         0 
+        y 
+        0 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(bank_raw <span class="sc">==</span> <span class="st">"unknown"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      age       job   marital education   default   balance   housing      loan 
+        0       288         0      1857         0         0         0         0 
+  contact       day     month  duration  campaign     pdays  previous  poutcome 
+    13020         0         0         0         0         0         0     36959 
+        y 
+        0 </code></pre>
+</div>
+</div>
+<p>No columns contain <code>NA</code> values But 4 different columns with vast number of observations contain unknnown so let’s make <code>"unknown"</code> its own level.</p>
+<p>Let’s now make categorical columns factors.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="ot">&lt;-</span> bank_raw <span class="sc">|&gt;</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">across</span>(<span class="fu">where</span>(is.character), as.factor)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(bank_all)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>tibble [45,211 × 17] (S3: tbl_df/tbl/data.frame)
+ $ age      : num [1:45211] 58 44 33 47 33 35 28 42 58 43 ...
+ $ job      : Factor w/ 12 levels "admin.","blue-collar",..: 5 10 3 2 12 5 5 3 6 10 ...
+ $ marital  : Factor w/ 3 levels "divorced","married",..: 2 3 2 2 3 2 3 1 2 3 ...
+ $ education: Factor w/ 4 levels "primary","secondary",..: 3 2 2 4 4 3 3 3 1 2 ...
+ $ default  : Factor w/ 2 levels "no","yes": 1 1 1 1 1 1 1 2 1 1 ...
+ $ balance  : num [1:45211] 2143 29 2 1506 1 ...
+ $ housing  : Factor w/ 2 levels "no","yes": 2 2 2 2 1 2 2 2 2 2 ...
+ $ loan     : Factor w/ 2 levels "no","yes": 1 1 2 1 1 1 2 1 1 1 ...
+ $ contact  : Factor w/ 3 levels "cellular","telephone",..: 3 3 3 3 3 3 3 3 3 3 ...
+ $ day      : num [1:45211] 5 5 5 5 5 5 5 5 5 5 ...
+ $ month    : Factor w/ 12 levels "apr","aug","dec",..: 9 9 9 9 9 9 9 9 9 9 ...
+ $ duration : num [1:45211] 261 151 76 92 198 139 217 380 50 55 ...
+ $ campaign : num [1:45211] 1 1 1 1 1 1 1 1 1 1 ...
+ $ pdays    : num [1:45211] -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ...
+ $ previous : num [1:45211] 0 0 0 0 0 0 0 0 0 0 ...
+ $ poutcome : Factor w/ 4 levels "failure","other",..: 4 4 4 4 4 4 4 4 4 4 ...
+ $ y        : Factor w/ 2 levels "no","yes": 1 1 1 1 1 1 1 1 1 1 ...</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">levels</span>(bank_all<span class="sc">$</span>y)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "no"  "yes"</code></pre>
+</div>
+</div>
+</section>
+<section id="exploratory-data-analysis" class="level1">
+<h1>Exploratory Data Analysis</h1>
+<section id="outcome---y" class="level2">
+<h2 class="anchored" data-anchor-id="outcome---y">Outcome - y</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(bank_all<span class="sc">$</span>y)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+   no   yes 
+39922  5289 </code></pre>
+</div>
+</div>
+</section>
+<section id="categorical-predictors-vs-y" class="level2">
+<h2 class="anchored" data-anchor-id="categorical-predictors-vs-y">Categorical Predictors vs y</h2>
+<section id="housing-vs-y" class="level3">
+<h3 class="anchored" data-anchor-id="housing-vs-y">housing vs y</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(housing, y) <span class="sc">|&gt;</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rate =</span> yes <span class="sc">/</span> (yes<span class="sc">+</span>no))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 4
+  housing    no   yes   rate
+  &lt;fct&gt;   &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 no      16727  3354 0.167 
+2 yes     23195  1935 0.0770</code></pre>
+</div>
+</div>
+<p>Housing categorical variable is showing some varition on the outcome. People with no housing cost seem to be able to subscribe at higher rate. We will be including this as a categorical predictor.</p>
+</section>
+<section id="poutcome-vs-y" class="level3">
+<h3 class="anchored" data-anchor-id="poutcome-vs-y">poutcome vs y</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(poutcome, y) <span class="sc">|&gt;</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rate =</span> yes <span class="sc">/</span> (yes<span class="sc">+</span>no))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 4
+  poutcome    no   yes   rate
+  &lt;fct&gt;    &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 failure   4283   618 0.126 
+2 other     1533   307 0.167 
+3 success    533   978 0.647 
+4 unknown  33573  3386 0.0916</code></pre>
+</div>
+</div>
+<p>It appears, past-outcome is influencing current outcome. If the poutcome is success there is ~65% of chance of resubscribing. Similarly if poutcome is failure then the rate is 12%. This is definitely a useful predictor to be included for this project.</p>
+</section>
+</section>
+<section id="numerical-predictors-vs-y" class="level2">
+<h2 class="anchored" data-anchor-id="numerical-predictors-vs-y">Numerical Predictors vs y</h2>
+<p>Let’s explore some numerical predicators now</p>
+<section id="age-vs-y" class="level3">
+<h3 class="anchored" data-anchor-id="age-vs-y">age vs y</h3>
+<p>there is some evidence that job and education are directly related to age. So checking age first (also just including age and not job education will help us reduce multicollinearity)</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_group =</span> <span class="fu">case_when</span>(</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">25</span> <span class="sc">~</span> <span class="st">"25 and under"</span>,</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">30</span> <span class="sc">~</span> <span class="st">"26 to 30"</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">40</span> <span class="sc">~</span> <span class="st">"31 to 40"</span>,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>     age <span class="sc">&lt;=</span> <span class="dv">50</span> <span class="sc">~</span> <span class="st">"41 to 50"</span>,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>     age <span class="sc">&lt;=</span> <span class="dv">60</span> <span class="sc">~</span> <span class="st">"51 to 60"</span>,</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&gt;</span> <span class="dv">60</span> <span class="sc">~</span> <span class="st">"over 60"</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(age_group , y) <span class="sc">|&gt;</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">total =</span> yes <span class="sc">+</span> no,</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>         <span class="at">rate =</span> yes <span class="sc">/</span>total)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 5
+  age_group       no   yes total   rate
+  &lt;chr&gt;        &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 25 and under  1016   320  1336 0.240 
+2 26 to 30      4869   825  5694 0.145 
+3 31 to 40     15875  1812 17687 0.102 
+4 41 to 50     10220  1019 11239 0.0907
+5 51 to 60      7256   811  8067 0.101 
+6 over 60        686   502  1188 0.423 </code></pre>
+</div>
+</div>
+<p>In the table above every row has more than 1000 clients. As we can see the subscription rate was about 24% under 25 and then dropped until age 50. Then it climbed to 42% after age 60. Thefore age seems be significantly contributing to the outcome.</p>
+<p>Let’s split this further and show under 17 and 18-25</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_group =</span> <span class="fu">case_when</span>(</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">17</span> <span class="sc">~</span> <span class="st">"17 and under"</span>,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">25</span> <span class="sc">~</span> <span class="st">"18 to 25"</span>,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">30</span> <span class="sc">~</span> <span class="st">"26 to 30"</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&lt;=</span> <span class="dv">40</span> <span class="sc">~</span> <span class="st">"31 to 40"</span>,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>     age <span class="sc">&lt;=</span> <span class="dv">50</span> <span class="sc">~</span> <span class="st">"41 to 50"</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>     age <span class="sc">&lt;=</span> <span class="dv">60</span> <span class="sc">~</span> <span class="st">"51 to 60"</span>,</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    age <span class="sc">&gt;</span> <span class="dv">60</span> <span class="sc">~</span> <span class="st">"over 60"</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(age_group , y) <span class="sc">|&gt;</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">total =</span> yes <span class="sc">+</span> no,</span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>         <span class="at">rate =</span> yes <span class="sc">/</span>total)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 5
+  age_group    no   yes total   rate
+  &lt;chr&gt;     &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 18 to 25   1016   320  1336 0.240 
+2 26 to 30   4869   825  5694 0.145 
+3 31 to 40  15875  1812 17687 0.102 
+4 41 to 50  10220  1019 11239 0.0907
+5 51 to 60   7256   811  8067 0.101 
+6 over 60     686   502  1188 0.423 </code></pre>
+</div>
+</div>
+<p>That did not change the table. There were no clients under 18</p>
+<p>Checking the range of clients:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">range</span>(bank_all<span class="sc">$</span>age)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 18 95</code></pre>
+</div>
+</div>
+</section>
+<section id="balance-vs-y" class="level3">
+<h3 class="anchored" data-anchor-id="balance-vs-y">balance vs y</h3>
+<p>Now let’s check how bank balance changed the outcome:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(y) <span class="sc">|&gt;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">mean_balance =</span> <span class="fu">mean</span>(balance),</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">median_balance =</span> <span class="fu">median</span>(balance))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 3
+  y     mean_balance median_balance
+  &lt;fct&gt;        &lt;dbl&gt;          &lt;dbl&gt;
+1 no           1304.            417
+2 yes          1804.            733</code></pre>
+</div>
+</div>
+<p>Subscribers have generally higher mean and median bank balances compared to the ones that did not subscribe.</p>
+<p>Let’s create groups and check further. the number prefixes are to control the order of the display</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">balance_group =</span> <span class="fu">case_when</span>(</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    balance <span class="sc">&lt;=</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">"1: Negative balance"</span>,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    balance <span class="sc">&lt;=</span> <span class="dv">500</span> <span class="sc">~</span> <span class="st">"2: 1 to 500"</span>,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    balance <span class="sc">&lt;=</span> <span class="dv">1000</span> <span class="sc">~</span> <span class="st">"3: 501 to 1000"</span>,</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>    balance <span class="sc">&gt;</span> <span class="dv">1000</span> <span class="sc">~</span> <span class="st">"4: over 1000"</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(balance_group , y) <span class="sc">|&gt;</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">total =</span> yes <span class="sc">+</span> no,</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">rate =</span> yes <span class="sc">/</span>total)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 5
+  balance_group          no   yes total   rate
+  &lt;chr&gt;               &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 1: Negative balance  6778   502  7280 0.0690
+2 2: 1 to 500         14705  1680 16385 0.103 
+3 3: 501 to 1000       6056   859  6915 0.124 
+4 4: over 1000        12383  2248 14631 0.154 </code></pre>
+</div>
+</div>
+<p>Balance shows clear connection with output. Let’s include balance as the predictor.</p>
+</section>
+<section id="campaign-vs-y" class="level3">
+<h3 class="anchored" data-anchor-id="campaign-vs-y">campaign vs y</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(y) <span class="sc">|&gt;</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>   <span class="fu">summarize</span>(<span class="at">mean_campaign =</span> <span class="fu">mean</span>(campaign),</span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">median_campaign =</span> <span class="fu">median</span>(campaign))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 3
+  y     mean_campaign median_campaign
+  &lt;fct&gt;         &lt;dbl&gt;           &lt;dbl&gt;
+1 no             2.85               2
+2 yes            2.14               2</code></pre>
+</div>
+</div>
+<p>Number of calls needed to get people subscribed is meanfiully lower</p>
+<p>Let’s examine this further</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>bank_all <span class="sc">|&gt;</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">call_group =</span> <span class="fu">case_when</span>(</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>    campaign <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">"1: One call"</span>,</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>    campaign <span class="sc">==</span> <span class="dv">2</span> <span class="sc">~</span> <span class="st">"2: Two calls"</span>,</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>    campaign <span class="sc">==</span> <span class="dv">3</span> <span class="sc">~</span> <span class="st">"3: Three calls"</span>,</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>    campaign <span class="sc">&gt;=</span> <span class="dv">4</span> <span class="sc">~</span> <span class="st">"4: Four or more calls"</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(call_group , y) <span class="sc">|&gt;</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> y, <span class="at">values_from =</span> n) <span class="sc">|&gt;</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">total =</span> yes <span class="sc">+</span> no,</span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">rate =</span> yes <span class="sc">/</span>total)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 5
+  call_group               no   yes total   rate
+  &lt;chr&gt;                 &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;
+1 1: One call           14983  2561 17544 0.146 
+2 2: Two calls          11104  1401 12505 0.112 
+3 3: Three calls         4903   618  5521 0.112 
+4 4: Four or more calls  8932   709  9641 0.0735</code></pre>
+</div>
+</div>
+<p>It shows clean relation.. Let’s include campaign as one of the predictors</p>
+<p>Final Predictors before starting modeling</p>
+<ul>
+<li>housing</li>
+<li>poutcome</li>
+<li>age</li>
+<li>balance</li>
+<li>campaign</li>
+</ul>
+</section>
+</section>
+</section>
+<section id="modeling" class="level1">
+<h1>Modeling</h1>
+<section id="train-test-split" class="level2">
+<h2 class="anchored" data-anchor-id="train-test-split">Train/ test split</h2>
+<p>Let’s select the 5 predictor columns + response column and then do a 70-30 split onf the data. Let’s use response as strata so both train and rest have same propotion of yes/no observations</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">558</span>)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>bank <span class="ot">&lt;-</span> bank_all <span class="sc">|&gt;</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(y, housing, poutcome, age, balance, campaign)</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>bank_split <span class="ot">&lt;-</span> <span class="fu">initial_split</span>(bank_all, <span class="at">prop =</span> <span class="fl">0.7</span>, <span class="at">strata =</span> y)</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>bank_train <span class="ot">&lt;-</span> <span class="fu">training</span>(bank_split)</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>bank_test <span class="ot">&lt;-</span> <span class="fu">testing</span>(bank_split)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Let’s check yes/no balance in both training and testing sets</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>bank_train <span class="sc">|&gt;</span> </span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(y) <span class="sc">|&gt;</span> </span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 3
+  y         n  prop
+  &lt;fct&gt; &lt;int&gt; &lt;dbl&gt;
+1 no    27945 0.883
+2 yes    3702 0.117</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>bank_test <span class="sc">|&gt;</span> </span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(y) <span class="sc">|&gt;</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">prop =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 3
+  y         n  prop
+  &lt;fct&gt; &lt;int&gt; &lt;dbl&gt;
+1 no    11977 0.883
+2 yes    1587 0.117</code></pre>
+</div>
+</div>
+</section>
+<section id="cross-validation-folds" class="level2">
+<h2 class="anchored" data-anchor-id="cross-validation-folds">Cross validation folds</h2>
+<p>Using 5 fold cross validation to select best model from each family of models: - classification tree (not regression tree because the response is a categorical/class variable) - random forest</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>bank_folds <span class="ot">&lt;-</span> <span class="fu">vfold_cv</span>(bank_train, <span class="at">v =</span> <span class="dv">5</span>, <span class="at">strata =</span> y)</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>bank_folds</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>#  5-fold cross-validation using stratification 
+# A tibble: 5 × 2
+  splits               id   
+  &lt;list&gt;               &lt;chr&gt;
+1 &lt;split [25317/6330]&gt; Fold1
+2 &lt;split [25317/6330]&gt; Fold2
+3 &lt;split [25318/6329]&gt; Fold3
+4 &lt;split [25318/6329]&gt; Fold4
+5 &lt;split [25318/6329]&gt; Fold5</code></pre>
+</div>
+</div>
+</section>
+<section id="metric-for-selecting-the-best-model-from-each-family" class="level2">
+<h2 class="anchored" data-anchor-id="metric-for-selecting-the-best-model-from-each-family">Metric for selecting the best model from each family</h2>
+<p>I will go with log-loss function. Basically in a classification problem we have to maximize the likelihood of correctly estimating the outcome which translates to minimizing negative likelihood function aka log-loss function. One other option considered is accuracy - however the share of subscribers is about 12%. Therefore, a model that learns to classify every customer as “no” gets it right 88% of the times which is not meaningful. An 88% accuracy would only be meaningful if the outcome classes were balanced.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>bank_metrics <span class="ot">&lt;-</span> <span class="fu">metric_set</span>(mn_log_loss)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
 </section>
 </section>
 
