@@ -322,7 +322,7 @@ bank_metrics <- metric_set(mn_log_loss)
 
 
 
-A classification tree falls under the category of supervised learning models and isi used when the response variable is categorical.
+A classification tree falls under the category of supervised learning models and is used when the response variable is categorical.
 
 The idea behind a tree-based model is to split the predictor space into different regions and make a prediction for reach region. Unlike logistic regression, the predictions in adjacent regions do not necessarily have to be close to each other.
 
@@ -414,7 +414,7 @@ tree_final_fit <- tree_final_workflow |>
 
 ```
 
-Now let's plot to visualiize final tree
+Now let's plot to visualize final tree
 
 ```{r}
 tree_final_fit |>
@@ -422,4 +422,129 @@ tree_final_fit |>
   rpart.plot(roundint = FALSE)
 
 ```
-The tree splits on poutcome first. if the previous campaign was a scuess, about 65% of those clients subscribed, but the remaining 97% of clients all go into on leaf with only about 10% chance of subscribing. The success group gets split further by housing, campaign and balance, and clients with no housing loan and fewer calls have the highest rate at 71%. Interestingly, age is not usued anywhere in the tree even though it looked useful during the EDA.
+
+```{r}
+tree_final_fit |>
+  extract_fit_engine() 
+
+```
+
+The tree splits on poutcome first. if the previous campaign was a success, about 65% of those clients subscribed, but the remaining 97% of clients all go into on leaf with only about 10% chance of subscribing. The success group gets split further by housing, campaign and balance, and clients with no housing loan and fewer calls have the highest rate at 71%. Interestingly, age is not usued anywhere in the tree even though it looked useful during the EDA.
+
+# Random Forest 
+
+A random forest is built from many classification trees instead of just one. Each tree is fit on a bootstrap sample of the training data, which means we resample the training data with replacement, so every tree sees a slightly different version of the data. For a classification problem, the tress then vote on a the class, and the predicted probability of subscribing is the average across all the trees. 
+
+## How is it different from a single tree?
+
+The main difference is that a random forest doesn't use all the predictors at each split. Instead it picks a random subset of predictors every time it splits, and then the number of predictors it picks is the tuning parameter `mtry`.
+
+The reason for this is that if there is one really strong predictor, every tree would use it for the first split and all the trees would end up looking very similar. In our classification tree `poutcome` was the first split. If every tree in the forest also split on `poutcome` first, the trees would all look about the same, and averaging nearly identical tree wouldn't yield different results than single tree. By allowing a random subset of predictors at each split, some trees can't use `poutcome` at the top, so the trees end up different from each other, and averaging them gives more stable predictions. 
+
+## Why it should do better?
+In our classification tree, some of the leaves had ~0% of the clients, so a  different training sample might not make those splits at all.
+Averaging many trees smooths this out and usually gives a better predictions.
+
+The downside of this is we lose interpretability. With many trees (forest) there is no single tree that we can plot and read like above. 
+
+## Tuning?
+
+`mtry` controls how different trees are from each other. A small `mtry` means each split only sees a few predictors, so the trees are very different, but some trees may miss strong predictors like `poutcome`. A large value of `mtry` makes each tree stronger, but the trees look more alike. when `mtry` is 5, all splits will use all 5 predictors.
+
+
+
+I will tune `mtry` from 1 to 5 using same CV folds and log-loss as the classification tree. I will pick `mtry` that has the lowest value of average log-loss function. Then `mtry` is fixed for the final forest which then every split considers the same number of predictors (but predictors can be different)
+
+## Fitting random forest 
+
+
+
+```{r}
+
+rf_spec <- rand_forest(mtry = tune()) |>
+  set_engine("ranger") |>
+  set_mode("classification")
+
+
+rf_workflow <- workflow() |>
+  add_recipe(bank_recipe) |>
+  add_model(rf_spec)
+
+
+rf_grid <- grid_regular(mtry(range = c(1,5)), levels = 5)
+
+set.seed(558)
+
+rf_results <- rf_workflow |>
+  tune_grid(resamples = bank_folds, grid = rf_grid, metrics = bank_metrics)
+
+# arrange the 5 random forests by the mean value of mn_log_loss in ascending order 
+collect_metrics(rf_results) |>
+  arrange(mean)
+
+```
+
+
+## Best random forest 
+
+```{r}
+
+# Let's select the best tuning parameters -- which is pre0_mod2_post0 from above
+
+rf_best_params <- select_best(rf_results, metric = "mn_log_loss")
+rf_best_params
+
+```
+
+Now let's replace `tune()` with best values of `mtry`
+
+```{r}
+rf_final_workflow <- rf_workflow |>
+  finalize_workflow(rf_best_params)
+
+
+```
+
+Now let's fit the full training data on the final winning rf model - I feel that this is not needed because we are not plotting random forest model.
+
+```{r}
+rf_final_fit <- rf_final_workflow |>
+  fit(bank_train)
+```
+
+
+# Comparing the two models on test set 
+
+Now let's fit both classification tree and random forest on full training set and then test with test set. Testing with test set is something neighter model has done yet until this step.
+
+```{r}
+tree_test <- tree_final_workflow |>
+  last_fit(bank_split, metrics = bank_metrics)
+
+tree_test |>
+  collect_metrics()
+```
+
+```{r}
+
+set.seed(558)
+rf_test <- rf_final_workflow |>
+  last_fit(bank_split, metrics = bank_metrics)
+
+rf_test |>
+  collect_metrics()
+```
+
+# Final model
+
+The random forest model has the lower test log_loss value of 0.313 compared to classification tree's 0.33. Therefor random forest model is the winner. Let's fit it on the entire bank data set. 
+
+```{r}
+
+set.seed(558)
+final_model <- rf_final_workflow |>
+  fit(bank)
+
+final_model
+```
+
