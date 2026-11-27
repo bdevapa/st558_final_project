@@ -573,7 +573,7 @@ dbl  (7): age, balance, day, duration, campaign, pdays, previous
 </section>
 <section id="classification-tree" class="level1">
 <h1>Classification tree</h1>
-<p>A classification tree falls under the category of supervised learning models and isi used when the response variable is categorical.</p>
+<p>A classification tree falls under the category of supervised learning models and is used when the response variable is categorical.</p>
 <p>The idea behind a tree-based model is to split the predictor space into different regions and make a prediction for reach region. Unlike logistic regression, the predictions in adjacent regions do not necessarily have to be close to each other.</p>
 <p>One of the interesting things we noticed during our EDA was that the subscription rate went from approximately 10% to 42% around the age of 60. A tree-based model could potentially capture this pattern by splitting the data based on age.</p>
 <section id="how-does-the-model-make-predictions" class="level2">
@@ -684,7 +684,7 @@ predictor: 5</code></pre>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>tree_final_fit <span class="ot">&lt;-</span> tree_final_workflow <span class="sc">|&gt;</span></span>
 <span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fit</span>(bank_train)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>Now let’s plot to visualiize final tree</p>
+<p>Now let’s plot to visualize final tree</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>tree_final_fit <span class="sc">|&gt;</span></span>
 <span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit_engine</span>() <span class="sc">|&gt;</span></span>
@@ -697,7 +697,174 @@ predictor: 5</code></pre>
 </div>
 </div>
 </div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>tree_final_fit <span class="sc">|&gt;</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit_engine</span>() </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>n= 31647 
+
+node), split, n, loss, yval, (yprob)
+      * denotes terminal node
+
+ 1) root 31647 3702 no (0.88302209 0.11697791)  
+   2) poutcome=failure,other,unknown 30622 3038 no (0.90079028 0.09920972) *
+   3) poutcome=success 1025  361 yes (0.35219512 0.64780488)  
+     6) housing=yes 314  144 yes (0.45859873 0.54140127)  
+      12) campaign&gt;=3.5 30    9 no (0.70000000 0.30000000) *
+      13) campaign&lt; 3.5 284  123 yes (0.43309859 0.56690141) *
+     7) housing=no 711  217 yes (0.30520394 0.69479606)  
+      14) campaign&gt;=4.5 28   12 no (0.57142857 0.42857143)  
+        28) balance&gt;=2669.5 11    1 no (0.90909091 0.09090909) *
+        29) balance&lt; 2669.5 17    6 yes (0.35294118 0.64705882) *
+      15) campaign&lt; 4.5 683  201 yes (0.29428990 0.70571010) *</code></pre>
+</div>
+</div>
+<p>The tree splits on poutcome first. if the previous campaign was a success, about 65% of those clients subscribed, but the remaining 97% of clients all go into on leaf with only about 10% chance of subscribing. The success group gets split further by housing, campaign and balance, and clients with no housing loan and fewer calls have the highest rate at 71%. Interestingly, age is not usued anywhere in the tree even though it looked useful during the EDA.</p>
 </section>
+</section>
+<section id="random-forest" class="level1">
+<h1>Random Forest</h1>
+<p>A random forest is built from many classification trees instead of just one. Each tree is fit on a bootstrap sample of the training data, which means we resample the training data with replacement, so every tree sees a slightly different version of the data. For a classification problem, the tress then vote on a the class, and the predicted probability of subscribing is the average across all the trees.</p>
+<section id="how-is-it-different-from-a-single-tree" class="level2">
+<h2 class="anchored" data-anchor-id="how-is-it-different-from-a-single-tree">How is it different from a single tree?</h2>
+<p>The main difference is that a random forest doesn’t use all the predictors at each split. Instead it picks a random subset of predictors every time it splits, and then the number of predictors it picks is the tuning parameter <code>mtry</code>.</p>
+<p>The reason for this is that if there is one really strong predictor, every tree would use it for the first split and all the trees would end up looking very similar. In our classification tree <code>poutcome</code> was the first split. If every tree in the forest also split on <code>poutcome</code> first, the trees would all look about the same, and averaging nearly identical tree wouldn’t yield different results than single tree. By allowing a random subset of predictors at each split, some trees can’t use <code>poutcome</code> at the top, so the trees end up different from each other, and averaging them gives more stable predictions.</p>
+</section>
+<section id="why-it-should-do-better" class="level2">
+<h2 class="anchored" data-anchor-id="why-it-should-do-better">Why it should do better?</h2>
+<p>In our classification tree, some of the leaves had ~0% of the clients, so a different training sample might not make those splits at all. Averaging many trees smooths this out and usually gives a better predictions.</p>
+<p>The downside of this is we lose interpretability. With many trees (forest) there is no single tree that we can plot and read like above.</p>
+</section>
+<section id="tuning" class="level2">
+<h2 class="anchored" data-anchor-id="tuning">Tuning?</h2>
+<p><code>mtry</code> controls how different trees are from each other. A small <code>mtry</code> means each split only sees a few predictors, so the trees are very different, but some trees may miss strong predictors like <code>poutcome</code>. A large value of <code>mtry</code> makes each tree stronger, but the trees look more alike. when <code>mtry</code> is 5, all splits will use all 5 predictors.</p>
+<p>I will tune <code>mtry</code> from 1 to 5 using same CV folds and log-loss as the classification tree. I will pick <code>mtry</code> that has the lowest value of average log-loss function. Then <code>mtry</code> is fixed for the final forest which then every split considers the same number of predictors (but predictors can be different)</p>
+</section>
+<section id="fitting-random-forest" class="level2">
+<h2 class="anchored" data-anchor-id="fitting-random-forest">Fitting random forest</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a>rf_spec <span class="ot">&lt;-</span> <span class="fu">rand_forest</span>(<span class="at">mtry =</span> <span class="fu">tune</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"ranger"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"classification"</span>)</span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a>rf_workflow <span class="ot">&lt;-</span> <span class="fu">workflow</span>() <span class="sc">|&gt;</span></span>
+<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_recipe</span>(bank_recipe) <span class="sc">|&gt;</span></span>
+<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_model</span>(rf_spec)</span>
+<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-11"><a href="#cb63-11" aria-hidden="true" tabindex="-1"></a>rf_grid <span class="ot">&lt;-</span> <span class="fu">grid_regular</span>(<span class="fu">mtry</span>(<span class="at">range =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">5</span>)), <span class="at">levels =</span> <span class="dv">5</span>)</span>
+<span id="cb63-12"><a href="#cb63-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-13"><a href="#cb63-13" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">558</span>)</span>
+<span id="cb63-14"><a href="#cb63-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-15"><a href="#cb63-15" aria-hidden="true" tabindex="-1"></a>rf_results <span class="ot">&lt;-</span> rf_workflow <span class="sc">|&gt;</span></span>
+<span id="cb63-16"><a href="#cb63-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tune_grid</span>(<span class="at">resamples =</span> bank_folds, <span class="at">grid =</span> rf_grid, <span class="at">metrics =</span> bank_metrics)</span>
+<span id="cb63-17"><a href="#cb63-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-18"><a href="#cb63-18" aria-hidden="true" tabindex="-1"></a><span class="co"># arrange the 5 random forests by the mean value of mn_log_loss in ascending order </span></span>
+<span id="cb63-19"><a href="#cb63-19" aria-hidden="true" tabindex="-1"></a><span class="fu">collect_metrics</span>(rf_results) <span class="sc">|&gt;</span></span>
+<span id="cb63-20"><a href="#cb63-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(mean)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 5 × 7
+   mtry .metric     .estimator  mean     n  std_err .config        
+  &lt;int&gt; &lt;chr&gt;       &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt; &lt;chr&gt;          
+1     2 mn_log_loss binary     0.318     5 0.00110  pre0_mod2_post0
+2     1 mn_log_loss binary     0.320     5 0.000968 pre0_mod1_post0
+3     3 mn_log_loss binary     0.341     5 0.00112  pre0_mod3_post0
+4     4 mn_log_loss binary     0.366     5 0.000798 pre0_mod4_post0
+5     5 mn_log_loss binary     0.396     5 0.00231  pre0_mod5_post0</code></pre>
+</div>
+</div>
+</section>
+<section id="best-random-forest" class="level2">
+<h2 class="anchored" data-anchor-id="best-random-forest">Best random forest</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Let's select the best tuning parameters -- which is pre0_mod2_post0 from above</span></span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>rf_best_params <span class="ot">&lt;-</span> <span class="fu">select_best</span>(rf_results, <span class="at">metric =</span> <span class="st">"mn_log_loss"</span>)</span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a>rf_best_params</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 2
+   mtry .config        
+  &lt;int&gt; &lt;chr&gt;          
+1     2 pre0_mod2_post0</code></pre>
+</div>
+</div>
+<p>Now let’s replace <code>tune()</code> with best values of <code>mtry</code></p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a>rf_final_workflow <span class="ot">&lt;-</span> rf_workflow <span class="sc">|&gt;</span></span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">finalize_workflow</span>(rf_best_params)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Now let’s fit the full training data on the final winning rf model - I feel that this is not needed because we are not plotting random forest model.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>rf_final_fit <span class="ot">&lt;-</span> rf_final_workflow <span class="sc">|&gt;</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fit</span>(bank_train)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="comparing-the-two-models-on-test-set" class="level1">
+<h1>Comparing the two models on test set</h1>
+<p>Now let’s fit both classification tree and random forest on full training set and then test with test set. Testing with test set is something neighther model has done yet until this step.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>tree_test <span class="ot">&lt;-</span> tree_final_workflow <span class="sc">|&gt;</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">last_fit</span>(bank_split, <span class="at">metrics =</span> bank_metrics)</span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>tree_test <span class="sc">|&gt;</span></span>
+<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">collect_metrics</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  .metric     .estimator .estimate .config        
+  &lt;chr&gt;       &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;          
+1 mn_log_loss binary         0.331 pre0_mod0_post0</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">558</span>)</span>
+<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a>rf_test <span class="ot">&lt;-</span> rf_final_workflow <span class="sc">|&gt;</span></span>
+<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">last_fit</span>(bank_split, <span class="at">metrics =</span> bank_metrics)</span>
+<span id="cb71-4"><a href="#cb71-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb71-5"><a href="#cb71-5" aria-hidden="true" tabindex="-1"></a>rf_test <span class="sc">|&gt;</span></span>
+<span id="cb71-6"><a href="#cb71-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">collect_metrics</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  .metric     .estimator .estimate .config        
+  &lt;chr&gt;       &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;          
+1 mn_log_loss binary         0.313 pre0_mod0_post0</code></pre>
+</div>
+</div>
+</section>
+<section id="final-model" class="level1">
+<h1>Final model</h1>
+<p>The random forest model has the lower test log_loss value, so it is the winner. Let’s fit in on the entire bank data set.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a>final_model <span class="ot">&lt;-</span> rf_final_workflow <span class="sc">|&gt;</span></span>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fit</span>(bank)</span>
+<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb73-4"><a href="#cb73-4" aria-hidden="true" tabindex="-1"></a>final_model</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>══ Workflow [trained] ══════════════════════════════════════════════════════════
+Preprocessor: Recipe
+Model: rand_forest()
+
+── Preprocessor ────────────────────────────────────────────────────────────────
+0 Recipe Steps
+
+── Model ───────────────────────────────────────────────────────────────────────
+Ranger result
+
+Call:
+ ranger::ranger(x = maybe_data_frame(x), y = y, mtry = min_cols(~2L,      x), num.threads = 1, verbose = FALSE, seed = sample.int(10^5,      1), probability = TRUE) 
+
+Type:                             Probability estimation 
+Number of trees:                  500 
+Sample size:                      45211 
+Number of independent variables:  5 
+Mtry:                             2 
+Target node size:                 10 
+Variable importance mode:         none 
+Splitrule:                        gini 
+OOB prediction error (Brier s.):  0.08938266 </code></pre>
+</div>
+</div>
 </section>
 
 </main>
