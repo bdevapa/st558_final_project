@@ -1,0 +1,156 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "",
+    "text": "The data comes from Banking Dataset - Marketing Targets. This is picked up from publicly available research data UCI Machine Learning using random sampling plus a few additional columns are introduced in Kaggle data.\nIn Project 2, I explored this data with an interactive Shiny app. The goal of this (final) project is to predict y y is a categorical outcome of the campaign, therefore we will be working on a binary classification problem.\nClient Traits (column names in the data set):\n\n\n\nage (numeric)\njob : type of job (categorical: “admin.”,“unknown”,“unemployed”,“management”,“housemaid”,“entrepreneur”,“student”,“blue-collar”,“self-employed”,“retired”,“technician”,“services”)\nmarital : marital status (categorical: “married”,“divorced”,“single”; note: “divorced” means divorced or widowed)\neducation (categorical: “unknown”,“secondary”,“primary”,“tertiary”)\ndefault: has credit in default? (binary: “yes”,“no”)\nbalance: average yearly balance, in euros (numeric)\nhousing: has housing loan? (binary: “yes”,“no”)\nloan: has personal loan? (binary: “yes”,“no”)\n\n\n\n\n\ncontact: contact communication type (categorical: “unknown”,“telephone”,“cellular”)\nday: last contact day of the month (numeric)\nmonth: last contact month of year (categorical: “jan”, “feb”, “mar”, …, “nov”, “dec”)\nduration: last contact duration, in seconds (numeric)\n\n\n\n\n\ncampaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)\npdays: number of days that passed by after the client was last contacted from a previous campaign (numeric, -1. means client was not previously contacted)\nprevious: number of contacts performed before this campaign and for this client (numeric)\npoutcome: outcome of the previous marketing campaign (categorical: “unknown”,“other”,“failure”,“success”)\n\nOutput variable (desired target):\n\ny - has the client subscribed a term deposit? (binary: “yes”,“no”)"
+  },
+  {
+    "objectID": "index.html#bank-client-data",
+    "href": "index.html#bank-client-data",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "",
+    "text": "age (numeric)\njob : type of job (categorical: “admin.”,“unknown”,“unemployed”,“management”,“housemaid”,“entrepreneur”,“student”,“blue-collar”,“self-employed”,“retired”,“technician”,“services”)\nmarital : marital status (categorical: “married”,“divorced”,“single”; note: “divorced” means divorced or widowed)\neducation (categorical: “unknown”,“secondary”,“primary”,“tertiary”)\ndefault: has credit in default? (binary: “yes”,“no”)\nbalance: average yearly balance, in euros (numeric)\nhousing: has housing loan? (binary: “yes”,“no”)\nloan: has personal loan? (binary: “yes”,“no”)"
+  },
+  {
+    "objectID": "index.html#related-with-the-last-contact-of-the-current-campaign",
+    "href": "index.html#related-with-the-last-contact-of-the-current-campaign",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "",
+    "text": "contact: contact communication type (categorical: “unknown”,“telephone”,“cellular”)\nday: last contact day of the month (numeric)\nmonth: last contact month of year (categorical: “jan”, “feb”, “mar”, …, “nov”, “dec”)\nduration: last contact duration, in seconds (numeric)"
+  },
+  {
+    "objectID": "index.html#other-attributes",
+    "href": "index.html#other-attributes",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "",
+    "text": "campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)\npdays: number of days that passed by after the client was last contacted from a previous campaign (numeric, -1. means client was not previously contacted)\nprevious: number of contacts performed before this campaign and for this client (numeric)\npoutcome: outcome of the previous marketing campaign (categorical: “unknown”,“other”,“failure”,“success”)\n\nOutput variable (desired target):\n\ny - has the client subscribed a term deposit? (binary: “yes”,“no”)"
+  },
+  {
+    "objectID": "index.html#outcome---y",
+    "href": "index.html#outcome---y",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Outcome - y",
+    "text": "Outcome - y\n\ntable(bank_all$y)\n\n\n   no   yes \n39922  5289"
+  },
+  {
+    "objectID": "index.html#categorical-predictors-vs-y",
+    "href": "index.html#categorical-predictors-vs-y",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Categorical Predictors vs y",
+    "text": "Categorical Predictors vs y\n\nhousing vs y\n\nbank_all |&gt;\n  count(housing, y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(rate = yes / (yes+no))\n\n# A tibble: 2 × 4\n  housing    no   yes   rate\n  &lt;fct&gt;   &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 no      16727  3354 0.167 \n2 yes     23195  1935 0.0770\n\n\nHousing categorical variable is showing some varition on the outcome. People with no housing cost seem to be able to subscribe at higher rate. We will be including this as a categorical predictor.\n\n\npoutcome vs y\n\nbank_all |&gt;\n  count(poutcome, y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(rate = yes / (yes+no))\n\n# A tibble: 4 × 4\n  poutcome    no   yes   rate\n  &lt;fct&gt;    &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 failure   4283   618 0.126 \n2 other     1533   307 0.167 \n3 success    533   978 0.647 \n4 unknown  33573  3386 0.0916\n\n\nIt appears, past-outcome is influencing current outcome. If the poutcome is success there is ~65% of chance of resubscribing. Similarly if poutcome is failure then the rate is 12%. This is definitely a useful predictor to be included for this project."
+  },
+  {
+    "objectID": "index.html#numerical-predictors-vs-y",
+    "href": "index.html#numerical-predictors-vs-y",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Numerical Predictors vs y",
+    "text": "Numerical Predictors vs y\nLet’s explore some numerical predicators now\n\nage vs y\nthere is some evidence that job and education are directly related to age. So checking age first (also just including age and not job education will help us reduce multicollinearity)\n\nbank_all |&gt;\n  mutate(age_group = case_when(\n    age &lt;= 25 ~ \"25 and under\",\n    age &lt;= 30 ~ \"26 to 30\",\n    age &lt;= 40 ~ \"31 to 40\",\n     age &lt;= 50 ~ \"41 to 50\",\n     age &lt;= 60 ~ \"51 to 60\",\n    age &gt; 60 ~ \"over 60\"\n  )) |&gt;\n  count(age_group , y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(total = yes + no,\n         rate = yes /total)\n\n# A tibble: 6 × 5\n  age_group       no   yes total   rate\n  &lt;chr&gt;        &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 25 and under  1016   320  1336 0.240 \n2 26 to 30      4869   825  5694 0.145 \n3 31 to 40     15875  1812 17687 0.102 \n4 41 to 50     10220  1019 11239 0.0907\n5 51 to 60      7256   811  8067 0.101 \n6 over 60        686   502  1188 0.423 \n\n\nIn the table above every row has more than 1000 clients. As we can see the subscription rate was about 24% under 25 and then dropped until age 50. Then it climbed to 42% after age 60. Thefore age seems be significantly contributing to the outcome.\nLet’s split this further and show under 17 and 18-25\n\nbank_all |&gt;\n  mutate(age_group = case_when(\n    age &lt;= 17 ~ \"17 and under\",\n    age &lt;= 25 ~ \"18 to 25\",\n    age &lt;= 30 ~ \"26 to 30\",\n    age &lt;= 40 ~ \"31 to 40\",\n     age &lt;= 50 ~ \"41 to 50\",\n     age &lt;= 60 ~ \"51 to 60\",\n    age &gt; 60 ~ \"over 60\"\n  )) |&gt;\n  count(age_group , y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(total = yes + no,\n         rate = yes /total)\n\n# A tibble: 6 × 5\n  age_group    no   yes total   rate\n  &lt;chr&gt;     &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 18 to 25   1016   320  1336 0.240 \n2 26 to 30   4869   825  5694 0.145 \n3 31 to 40  15875  1812 17687 0.102 \n4 41 to 50  10220  1019 11239 0.0907\n5 51 to 60   7256   811  8067 0.101 \n6 over 60     686   502  1188 0.423 \n\n\nThat did not change the table. There were no clients under 18\nChecking the range of clients:\n\nrange(bank_all$age)\n\n[1] 18 95\n\n\n\n\nbalance vs y\nNow let’s check how bank balance changed the outcome:\n\nbank_all |&gt;\n  group_by(y) |&gt;\n  summarize(mean_balance = mean(balance),\n            median_balance = median(balance))\n\n# A tibble: 2 × 3\n  y     mean_balance median_balance\n  &lt;fct&gt;        &lt;dbl&gt;          &lt;dbl&gt;\n1 no           1304.            417\n2 yes          1804.            733\n\n\nSubscribers have generally higher mean and median bank balances compared to the ones that did not subscribe.\nLet’s create groups and check further. the number prefixes are to control the order of the display\n\nbank_all |&gt;\n  mutate(balance_group = case_when(\n    balance &lt;= 0 ~ \"1: Negative balance\",\n    balance &lt;= 500 ~ \"2: 1 to 500\",\n    balance &lt;= 1000 ~ \"3: 501 to 1000\",\n    balance &gt; 1000 ~ \"4: over 1000\"\n  )) |&gt;\n  count(balance_group , y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(total = yes + no,\n         rate = yes /total)\n\n# A tibble: 4 × 5\n  balance_group          no   yes total   rate\n  &lt;chr&gt;               &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 1: Negative balance  6778   502  7280 0.0690\n2 2: 1 to 500         14705  1680 16385 0.103 \n3 3: 501 to 1000       6056   859  6915 0.124 \n4 4: over 1000        12383  2248 14631 0.154 \n\n\nBalance shows clear connection with output. Let’s include balance as the predictor.\n\n\ncampaign vs y\n\nbank_all |&gt;\n  group_by(y) |&gt;\n   summarize(mean_campaign = mean(campaign),\n            median_campaign = median(campaign))\n\n# A tibble: 2 × 3\n  y     mean_campaign median_campaign\n  &lt;fct&gt;         &lt;dbl&gt;           &lt;dbl&gt;\n1 no             2.85               2\n2 yes            2.14               2\n\n\nNumber of calls needed to get people subscribed is meanfiully lower\nLet’s examine this further\n\nbank_all |&gt;\n  mutate(call_group = case_when(\n    campaign == 1 ~ \"1: One call\",\n    campaign == 2 ~ \"2: Two calls\",\n    campaign == 3 ~ \"3: Three calls\",\n    campaign &gt;= 4 ~ \"4: Four or more calls\"\n  )) |&gt;\n  count(call_group , y) |&gt;\n  pivot_wider(names_from = y, values_from = n) |&gt;\n  mutate(total = yes + no,\n         rate = yes /total)\n\n# A tibble: 4 × 5\n  call_group               no   yes total   rate\n  &lt;chr&gt;                 &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;dbl&gt;\n1 1: One call           14983  2561 17544 0.146 \n2 2: Two calls          11104  1401 12505 0.112 \n3 3: Three calls         4903   618  5521 0.112 \n4 4: Four or more calls  8932   709  9641 0.0735\n\n\nIt shows clean relation.. Let’s include campaign as one of the predictors\nFinal Predictors before starting modeling\n\nhousing\npoutcome\nage\nbalance\ncampaign"
+  },
+  {
+    "objectID": "index.html#train-test-split",
+    "href": "index.html#train-test-split",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Train/ test split",
+    "text": "Train/ test split\nLet’s select the 5 predictor columns + response column and then do a 70-30 split on the data. Let’s use response as strata so both train and test have same proportion of yes/no observations\n\nset.seed(558)\n\nbank &lt;- bank_all |&gt;\n  select(y, housing, poutcome, age, balance, campaign)\n\nbank_split &lt;- initial_split(bank, prop = 0.7, strata = y)\nbank_train &lt;- training(bank_split)\nbank_test &lt;- testing(bank_split)\n\nLet’s check yes/no balance in both training and testing sets\n\nbank_train |&gt; \n  count(y) |&gt; \n  mutate(prop = n / sum(n))\n\n# A tibble: 2 × 3\n  y         n  prop\n  &lt;fct&gt; &lt;int&gt; &lt;dbl&gt;\n1 no    27945 0.883\n2 yes    3702 0.117\n\nbank_test |&gt; \n  count(y) |&gt;\n  mutate(prop = n / sum(n))\n\n# A tibble: 2 × 3\n  y         n  prop\n  &lt;fct&gt; &lt;int&gt; &lt;dbl&gt;\n1 no    11977 0.883\n2 yes    1587 0.117"
+  },
+  {
+    "objectID": "index.html#cross-validation-folds",
+    "href": "index.html#cross-validation-folds",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Cross validation folds",
+    "text": "Cross validation folds\nUsing 5 fold cross validation to select best model from each family of models: - classification tree (not regression tree because the response is a categorical/class variable) - random forest\n\nbank_folds &lt;- vfold_cv(bank_train, v = 5, strata = y)\nbank_folds\n\n#  5-fold cross-validation using stratification \n# A tibble: 5 × 2\n  splits               id   \n  &lt;list&gt;               &lt;chr&gt;\n1 &lt;split [25317/6330]&gt; Fold1\n2 &lt;split [25317/6330]&gt; Fold2\n3 &lt;split [25318/6329]&gt; Fold3\n4 &lt;split [25318/6329]&gt; Fold4\n5 &lt;split [25318/6329]&gt; Fold5\n\n\nThere are 31,647 observations in the training data. 5 fold CV splits them into 5 folds of about 6,330 observations each (or 6329 in some folds). In each of the 5 iterations, the model is fit on 4 folds (about 25,300 observations) and evaluated on the remaining fold which is the validation fold. Each fold serves as the validation fold exactly once. The log-loss is averaged for these 5 iterations.\nCV helps to select the hyperparameters that are not influenced by specific subset of training data. Instead all of the training data is used for both fitting and evaluatiing the model in different iterations and for each combination of the tuning-grid/hyperparameter selection\nThe test set is not used in CV process."
+  },
+  {
+    "objectID": "index.html#metric-for-selecting-the-best-model-from-each-family",
+    "href": "index.html#metric-for-selecting-the-best-model-from-each-family",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Metric for selecting the best model from each family",
+    "text": "Metric for selecting the best model from each family\nI will go with log-loss function. Basically in a classification problem we have to maximize the likelihood of correctly estimating the outcome which translates to minimizing negative likelihood function aka log-loss function. One other option considered is accuracy - however the share of subscribers is about 12%. Therefore, a model that learns to classify every customer as “no” gets it right 88% of the times which is not meaningful. An 88% accuracy would only be meaningful if the outcome classes were balanced.\n\nbank_metrics &lt;- metric_set(mn_log_loss)"
+  },
+  {
+    "objectID": "index.html#how-does-the-model-make-predictions",
+    "href": "index.html#how-does-the-model-make-predictions",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "How does the model make predictions?",
+    "text": "How does the model make predictions?\nIn a regression tree, as we saw in HW10, the prediction is the mean of a response variable in a given region. In a classification tree, however, the prediction is the most prevalent class in that region.\nSince we are using log-loss as our metric, we are interested in the probability of a client subscribing to a term deposit. This probability can be obtained by looking at the proportion of clients who subscribed within a given terminal node."
+  },
+  {
+    "objectID": "index.html#how-does-the-tree-fit",
+    "href": "index.html#how-does-the-tree-fit",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "How does the tree fit?",
+    "text": "How does the tree fit?\nThe fitting is done by recursive binary splitting, which is greedy; it picks the best split that minimizes loss at each step without looking ahead. At each step it tries every predictor and every possible cut point, and chooses the split that makes the two new regions as close to all yes or all no as possible, then repeats this within each new region."
+  },
+  {
+    "objectID": "index.html#what-is-pruning",
+    "href": "index.html#what-is-pruning",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "What is Pruning?",
+    "text": "What is Pruning?\nIf we keep splitting, the tree will grow very large and overfit the training data. Trees are usually grown large first and then pruned back using cost-complexity pruning which is controlled by the cost_complexity tuning parameter."
+  },
+  {
+    "objectID": "index.html#what-are-the-other-tuning-parameters",
+    "href": "index.html#what-are-the-other-tuning-parameters",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "What are the other tuning parameters?",
+    "text": "What are the other tuning parameters?\nThe other tuning parameter I use this tree_depth, which sets the maximum depth of the tree. The final tree is limited by the stricter of cost_complexity or tree_depth Another parameter, min_n, is the minimum number of observations a node needs before it can split. I will leave it as the default of 20.\nI tune cost_complexity and tree_depth together using a grid of 5 values each, which gives 25 combinations. Each combination is fit using the 5-fold CV described above, and the one with the lowest average log-loss is selected"
+  },
+  {
+    "objectID": "index.html#recipe",
+    "href": "index.html#recipe",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Recipe",
+    "text": "Recipe\nTrees can handle factors directly and dont need the numeric predictors to be standardized.. The recipe only needs the formula\n\nbank_recipe &lt;- recipe(y ~ ., data = bank_train)\nbank_recipe\n\n\n\n\n── Recipe ──────────────────────────────────────────────────────────────────────\n\n\n\n\n\n── Inputs \n\n\nNumber of variables by role\n\n\noutcome:   1\npredictor: 5"
+  },
+  {
+    "objectID": "index.html#fitting-the-classificaiton-tree",
+    "href": "index.html#fitting-the-classificaiton-tree",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Fitting the classificaiton tree",
+    "text": "Fitting the classificaiton tree\n\ntree_spec &lt;- decision_tree(cost_complexity = tune(), tree_depth = tune()) |&gt;\n  set_engine(\"rpart\") |&gt;\n  set_mode(\"classification\")\n\n\ntree_workflow &lt;- workflow() |&gt;\n  add_recipe(bank_recipe) |&gt;\n  add_model(tree_spec)\n\n\ntree_grid &lt;- grid_regular(cost_complexity(), tree_depth(), levels = 5)\n\ntree_results &lt;- tree_workflow |&gt;\n  tune_grid(resamples = bank_folds, grid = tree_grid, metrics = bank_metrics)\n\n# arrange the 25 trees by the mean value of mn_log_loss in ascending order \ncollect_metrics(tree_results) |&gt;\n  arrange(mean)\n\n# A tibble: 25 × 8\n   cost_complexity tree_depth .metric     .estimator  mean     n std_err .config\n             &lt;dbl&gt;      &lt;int&gt; &lt;chr&gt;       &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;  \n 1    0.000562              4 mn_log_loss binary     0.333     5 0.00121 pre0_m…\n 2    0.0000000001          4 mn_log_loss binary     0.333     5 0.00125 pre0_m…\n 3    0.0000000178          4 mn_log_loss binary     0.333     5 0.00125 pre0_m…\n 4    0.00000316            4 mn_log_loss binary     0.333     5 0.00125 pre0_m…\n 5    0.0000000001          1 mn_log_loss binary     0.334     5 0.00135 pre0_m…\n 6    0.0000000178          1 mn_log_loss binary     0.334     5 0.00135 pre0_m…\n 7    0.00000316            1 mn_log_loss binary     0.334     5 0.00135 pre0_m…\n 8    0.000562              1 mn_log_loss binary     0.334     5 0.00135 pre0_m…\n 9    0.0000000001          8 mn_log_loss binary     0.334     5 0.00337 pre0_m…\n10    0.0000000178          8 mn_log_loss binary     0.334     5 0.00337 pre0_m…\n# ℹ 15 more rows"
+  },
+  {
+    "objectID": "index.html#best-classification-tree",
+    "href": "index.html#best-classification-tree",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Best classification tree",
+    "text": "Best classification tree\n\n# Let's select the best tuning parameters -- which is pre0_mod17_post0 from above\n\ntree_best_params &lt;- select_best(tree_results, metric = \"mn_log_loss\")\ntree_best_params\n\n# A tibble: 1 × 3\n  cost_complexity tree_depth .config         \n            &lt;dbl&gt;      &lt;int&gt; &lt;chr&gt;           \n1        0.000562          4 pre0_mod17_post0\n\n\nNow let’s repalce tune() with best values\n\ntree_final_workflow &lt;- tree_workflow |&gt;\n  finalize_workflow(tree_best_params)\n\nNow let’s fit the full training data on the final winning tree model\n\ntree_final_fit &lt;- tree_final_workflow |&gt;\n  fit(bank_train)\n\nNow let’s plot to visualize final tree\n\ntree_final_fit |&gt;\n  extract_fit_engine() |&gt;\n  rpart.plot(roundint = FALSE)\n\n\n\n\n\n\n\n\n\ntree_final_fit |&gt;\n  extract_fit_engine() \n\nn= 31647 \n\nnode), split, n, loss, yval, (yprob)\n      * denotes terminal node\n\n 1) root 31647 3702 no (0.88302209 0.11697791)  \n   2) poutcome=failure,other,unknown 30622 3038 no (0.90079028 0.09920972) *\n   3) poutcome=success 1025  361 yes (0.35219512 0.64780488)  \n     6) housing=yes 314  144 yes (0.45859873 0.54140127)  \n      12) campaign&gt;=3.5 30    9 no (0.70000000 0.30000000) *\n      13) campaign&lt; 3.5 284  123 yes (0.43309859 0.56690141) *\n     7) housing=no 711  217 yes (0.30520394 0.69479606)  \n      14) campaign&gt;=4.5 28   12 no (0.57142857 0.42857143)  \n        28) balance&gt;=2669.5 11    1 no (0.90909091 0.09090909) *\n        29) balance&lt; 2669.5 17    6 yes (0.35294118 0.64705882) *\n      15) campaign&lt; 4.5 683  201 yes (0.29428990 0.70571010) *\n\n\nThe tree splits on poutcome first. if the previous campaign was a success, about 65% of those clients subscribed, but the remaining 97% of clients all go into on leaf with only about 10% chance of subscribing. The success group gets split further by housing, campaign and balance, and clients with no housing loan and fewer calls have the highest rate at 71%. Interestingly, age is not usued anywhere in the tree even though it looked useful during the EDA."
+  },
+  {
+    "objectID": "index.html#how-is-it-different-from-a-single-tree",
+    "href": "index.html#how-is-it-different-from-a-single-tree",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "How is it different from a single tree?",
+    "text": "How is it different from a single tree?\nThe main difference is that a random forest doesn’t use all the predictors at each split. Instead it picks a random subset of predictors every time it splits, and then the number of predictors it picks is the tuning parameter mtry.\nThe reason for this is that if there is one really strong predictor, every tree would use it for the first split and all the trees would end up looking very similar. In our classification tree poutcome was the first split. If every tree in the forest also split on poutcome first, the trees would all look about the same, and averaging nearly identical tree wouldn’t yield different results than single tree. By allowing a random subset of predictors at each split, some trees can’t use poutcome at the top, so the trees end up different from each other, and averaging them gives more stable predictions."
+  },
+  {
+    "objectID": "index.html#why-it-should-do-better",
+    "href": "index.html#why-it-should-do-better",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Why it should do better?",
+    "text": "Why it should do better?\nIn our classification tree, some of the leaves had ~0% of the clients, so a different training sample might not make those splits at all. Averaging many trees smooths this out and usually gives a better predictions.\nThe downside of this is we lose interpretability. With many trees (forest) there is no single tree that we can plot and read like above."
+  },
+  {
+    "objectID": "index.html#tuning",
+    "href": "index.html#tuning",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Tuning?",
+    "text": "Tuning?\nmtry controls how different trees are from each other. A small mtry means each split only sees a few predictors, so the trees are very different, but some trees may miss strong predictors like poutcome. A large value of mtry makes each tree stronger, but the trees look more alike. when mtry is 5, all splits will use all 5 predictors.\nI will tune mtry from 1 to 5 using same CV folds and log-loss as the classification tree. I will pick mtry that has the lowest value of average log-loss function. Then mtry is fixed for the final forest which then every split considers the same number of predictors (but predictors can be different)"
+  },
+  {
+    "objectID": "index.html#fitting-random-forest",
+    "href": "index.html#fitting-random-forest",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Fitting random forest",
+    "text": "Fitting random forest\n\nrf_spec &lt;- rand_forest(mtry = tune()) |&gt;\n  set_engine(\"ranger\") |&gt;\n  set_mode(\"classification\")\n\n\nrf_workflow &lt;- workflow() |&gt;\n  add_recipe(bank_recipe) |&gt;\n  add_model(rf_spec)\n\n\nrf_grid &lt;- grid_regular(mtry(range = c(1,5)), levels = 5)\n\nset.seed(558)\n\nrf_results &lt;- rf_workflow |&gt;\n  tune_grid(resamples = bank_folds, grid = rf_grid, metrics = bank_metrics)\n\n# arrange the 5 random forests by the mean value of mn_log_loss in ascending order \ncollect_metrics(rf_results) |&gt;\n  arrange(mean)\n\n# A tibble: 5 × 7\n   mtry .metric     .estimator  mean     n  std_err .config        \n  &lt;int&gt; &lt;chr&gt;       &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt; &lt;chr&gt;          \n1     2 mn_log_loss binary     0.318     5 0.00110  pre0_mod2_post0\n2     1 mn_log_loss binary     0.320     5 0.000968 pre0_mod1_post0\n3     3 mn_log_loss binary     0.341     5 0.00112  pre0_mod3_post0\n4     4 mn_log_loss binary     0.366     5 0.000798 pre0_mod4_post0\n5     5 mn_log_loss binary     0.396     5 0.00231  pre0_mod5_post0"
+  },
+  {
+    "objectID": "index.html#best-random-forest",
+    "href": "index.html#best-random-forest",
+    "title": "Bank Marketing: Model Fitting and Selection",
+    "section": "Best random forest",
+    "text": "Best random forest\n\n# Let's select the best tuning parameters -- which is pre0_mod2_post0 from above\n\nrf_best_params &lt;- select_best(rf_results, metric = \"mn_log_loss\")\nrf_best_params\n\n# A tibble: 1 × 2\n   mtry .config        \n  &lt;int&gt; &lt;chr&gt;          \n1     2 pre0_mod2_post0\n\n\nNow let’s replace tune() with best values of mtry\n\nrf_final_workflow &lt;- rf_workflow |&gt;\n  finalize_workflow(rf_best_params)\n\nNow let’s fit the full training data on the final winning rf model - I feel that this is not needed because we are not plotting random forest model.\n\nrf_final_fit &lt;- rf_final_workflow |&gt;\n  fit(bank_train)"
+  }
+]
