@@ -88,8 +88,8 @@ function(age = default_age, balance = default_balance, campaign = default_campai
 #* @get /info
 function() {
   list(
-    name = "bdevapa",
-    url = "https://github.com/bdevapa/st558_final_project"
+    name = "Bhanuprakash Devapatla",
+    url = "https://bdevapa.github.io/st558_final_project/"
   )
 } 
 
